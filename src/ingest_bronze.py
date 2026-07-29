@@ -251,7 +251,7 @@ def create_metadata(movie_id, endpoint, payload):
 def discover_movies(
     start_year=2018,
     end_year=2023,
-    pages_per_year=2
+    pages_per_year=10
 ):
     """
     Collect movie IDs from the Discover endpoint.
@@ -372,6 +372,68 @@ def get_movie_credits(movie_ids):
             "credits",
             f"credits_{movie_id}.json"
         )
+# ==========================================
+# Get weekly trending movies
+# ==========================================
+
+def get_trending_movies():
+    """
+    Download the weekly trending movies.
+    """
+
+    print("\nDownloading trending movies...")
+
+    data = make_request(
+        "/trending/movie/week"
+    )
+
+    save_raw_json(
+        data,
+        "trending",
+        "trending_week.json"
+    )
+
+# ==========================================
+# Get popular movies
+# ==========================================
+
+def get_popular_movies():
+    """
+    Download the current popular movies.
+    """
+
+    print("\nDownloading popular movies...")
+
+    data = make_request(
+        "/movie/popular"
+    )
+
+    save_raw_json(
+        data,
+        "popular",
+        "popular_movies.json"
+    )
+
+# ==========================================
+# Get movie genres
+# ==========================================
+
+def get_movie_genres():
+    """
+    Download the movie genre lookup table.
+    """
+
+    print("\nDownloading movie genres...")
+
+    data = make_request(
+        "/genre/movie/list"
+    )
+
+    save_raw_json(
+        data,
+        "genres",
+        "movie_genres.json"
+    )
 
 if __name__ == "__main__":
 
@@ -384,3 +446,9 @@ if __name__ == "__main__":
     get_movie_details(movie_ids)
 
     get_movie_credits(movie_ids)
+
+    get_trending_movies()
+
+    get_popular_movies()
+
+    get_movie_genres()
