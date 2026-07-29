@@ -251,7 +251,7 @@ def create_metadata(movie_id, endpoint, payload):
 def discover_movies(
     start_year=2018,
     end_year=2023,
-    pages_per_year=10
+    pages_per_year=9
 ):
     """
     Collect movie IDs from the Discover endpoint.

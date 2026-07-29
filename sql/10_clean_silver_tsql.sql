@@ -1,129 +1,296 @@
-CREATE TABLE silver.movies
+TRUNCATE TABLE silver.movies;
+
+WITH parsed AS
 (
-    movie_id INT PRIMARY KEY,
+    SELECT
 
-    title NVARCHAR(500),
-    original_title NVARCHAR(500),
+        TRY_CONVERT(INT, JSON_VALUE(payload, '$.id')) AS movie_id,
 
-    original_language VARCHAR(10),
+        JSON_VALUE(payload, '$.title') AS title,
 
-    release_date DATE,
-    release_year INT,
+        JSON_VALUE(payload, '$.original_title') AS original_title,
 
-    budget BIGINT NULL,
-    revenue BIGINT NULL,
-    runtime INT NULL,
+        UPPER(LTRIM(RTRIM(JSON_VALUE(payload, '$.original_language'))))
+            AS original_language,
 
-    vote_average FLOAT NULL,
-    vote_count INT,
+        TRY_CONVERT(
+            DATE,
+            NULLIF(JSON_VALUE(payload, '$.release_date'), '')
+        ) AS release_date,
 
-    popularity FLOAT,
+        NULLIF(
+            TRY_CONVERT(BIGINT, JSON_VALUE(payload, '$.budget')),
+            0
+        ) AS budget,
 
-    is_adult BIT,
+        NULLIF(
+            TRY_CONVERT(BIGINT, JSON_VALUE(payload, '$.revenue')),
+            0
+        ) AS revenue,
 
-    overview_is_empty BIT,
+        NULLIF(
+            TRY_CONVERT(INT, JSON_VALUE(payload, '$.runtime')),
+            0
+        ) AS runtime,
 
-    ingested_at DATETIME2
-);
+        TRY_CONVERT(
+            FLOAT,
+            JSON_VALUE(payload, '$.vote_average')
+        ) AS vote_average_raw,
 
-CREATE TABLE silver.genres
+        TRY_CONVERT(
+            INT,
+            JSON_VALUE(payload, '$.vote_count')
+        ) AS vote_count,
+
+        TRY_CONVERT(
+            FLOAT,
+            JSON_VALUE(payload, '$.popularity')
+        ) AS popularity,
+
+        TRY_CONVERT(
+            BIT,
+            JSON_VALUE(payload, '$.adult')
+        ) AS is_adult,
+
+        CASE
+            WHEN NULLIF(
+                    LTRIM(RTRIM(JSON_VALUE(payload, '$.overview'))),
+                    ''
+                 ) IS NULL
+            THEN 1
+            ELSE 0
+        END AS overview_is_empty,
+
+        ingested_at,
+
+        payload
+
+    FROM bronze.raw_movies
+
+    WHERE source_endpoint IN
+    (
+        'details',
+        'discover',
+        'popular',
+        'trending'
+    )
+),
+ranked AS
 (
-    genre_id INT PRIMARY KEY,
-    genre_name NVARCHAR(100)
-);
+    SELECT
+        *,
 
-CREATE TABLE silver.movie_genres
+        (
+            CASE WHEN budget IS NOT NULL THEN 1 ELSE 0 END +
+            CASE WHEN revenue IS NOT NULL THEN 1 ELSE 0 END +
+            CASE WHEN runtime IS NOT NULL THEN 1 ELSE 0 END +
+            CASE WHEN JSON_QUERY(payload, '$.genres') IS NOT NULL THEN 1 ELSE 0 END +
+            CASE WHEN JSON_QUERY(payload, '$.production_companies') IS NOT NULL THEN 1 ELSE 0 END +
+            CASE WHEN JSON_QUERY(payload, '$.spoken_languages') IS NOT NULL THEN 1 ELSE 0 END
+        ) AS completeness_score,
+
+        ROW_NUMBER() OVER
+        (
+            PARTITION BY movie_id
+
+            ORDER BY
+
+            (
+                CASE WHEN budget IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN revenue IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN runtime IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN JSON_QUERY(payload, '$.genres') IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN JSON_QUERY(payload, '$.production_companies') IS NOT NULL THEN 1 ELSE 0 END +
+                CASE WHEN JSON_QUERY(payload, '$.spoken_languages') IS NOT NULL THEN 1 ELSE 0 END
+            ) DESC,
+
+            ingested_at DESC
+
+        ) AS rn
+
+    FROM parsed
+)
+INSERT INTO silver.movies
 (
-    movie_id INT,
-    genre_id INT
-);
+    movie_id,
+    title,
+    original_title,
+    original_language,
+    release_date,
+    release_year,
+    budget,
+    revenue,
+    runtime,
+    vote_average,
+    vote_count,
+    popularity,
+    is_adult,
+    overview_is_empty,
+    ingested_at
+)
 
-CREATE TABLE silver.movie_companies
+SELECT
+
+    movie_id,
+
+    title,
+
+    original_title,
+
+    original_language,
+
+    release_date,
+
+    YEAR(release_date),
+
+    budget,
+
+    revenue,
+
+    runtime,
+
+    CASE
+        WHEN vote_count = 0
+        THEN NULL
+        ELSE vote_average_raw
+    END,
+
+    vote_count,
+
+    popularity,
+
+    is_adult,
+
+    overview_is_empty,
+
+    ingested_at
+
+FROM ranked
+
+WHERE rn = 1;
+
+--SELECT count(*)
+--FROM silver.movies;
+--SELECT count(*)
+--FROM silver_python.movies;
+
+--SELECT DB_NAME() AS CurrentDatabase;
+
+TRUNCATE TABLE silver.genres;
+
+INSERT INTO silver.genres
 (
-    movie_id INT,
-    company_name NVARCHAR(300)
-);
+    genre_id,
+    genre_name
+)
+SELECT
+    TRY_CONVERT(INT, JSON_VALUE(g.value, '$.id')) AS genre_id,
+    JSON_VALUE(g.value, '$.name') AS genre_name
+FROM bronze.raw_movies b
+CROSS APPLY OPENJSON(b.payload, '$.genres') g
+WHERE b.source_endpoint = 'genres';
 
-CREATE TABLE silver.movie_cast
+TRUNCATE TABLE silver.movie_genres;
+
+INSERT INTO silver.movie_genres
 (
-    movie_id INT,
+    movie_id,
+    genre_id
+)
+SELECT
 
-    person_name NVARCHAR(200),
+    TRY_CONVERT(INT, JSON_VALUE(b.payload,'$.id')) AS movie_id,
 
-    role_type VARCHAR(20),
+    TRY_CONVERT(INT, JSON_VALUE(g.value,'$.id')) AS genre_id
 
-    character_name NVARCHAR(300),
+FROM bronze.raw_movies b
 
-    cast_order INT
-);
+CROSS APPLY OPENJSON(b.payload,'$.genres') g
 
-SELECT 
-    TABLE_SCHEMA,
-    TABLE_NAME
-FROM INFORMATION_SCHEMA.TABLES
-WHERE TABLE_SCHEMA = 'silver';
+WHERE b.source_endpoint = 'details';
 
-CREATE TABLE silver_python.movies
+
+TRUNCATE TABLE silver.movie_companies;
+
+INSERT INTO silver.movie_companies
 (
-    movie_id INT PRIMARY KEY,
+    movie_id,
+    company_name
+)
+SELECT
 
-    title NVARCHAR(500),
-    original_title NVARCHAR(500),
+    TRY_CONVERT(INT, JSON_VALUE(b.payload,'$.id')),
 
-    original_language VARCHAR(10),
+    JSON_VALUE(c.value,'$.name')
 
-    release_date DATE,
-    release_year INT,
+FROM bronze.raw_movies b
 
-    budget BIGINT NULL,
-    revenue BIGINT NULL,
-    runtime INT NULL,
+CROSS APPLY OPENJSON(
+    b.payload,
+    '$.production_companies'
+) c
 
-    vote_average FLOAT NULL,
-    vote_count INT,
+WHERE b.source_endpoint='details';
 
-    popularity FLOAT,
 
-    is_adult BIT,
+TRUNCATE TABLE silver.movie_cast;
 
-    overview_is_empty BIT,
-
-    ingested_at DATETIME2
-);
-
-CREATE TABLE silver_python.genres
+-- Top 5 cast
+INSERT INTO silver.movie_cast
 (
-    genre_id INT PRIMARY KEY,
-    genre_name NVARCHAR(100)
-);
+    movie_id,
+    person_name,
+    role_type,
+    character_name,
+    cast_order
+)
+SELECT
 
-CREATE TABLE silver_python.movie_genres
+    TRY_CONVERT(INT, JSON_VALUE(b.payload,'$.id')),
+
+    JSON_VALUE(c.value,'$.name'),
+
+    'Cast',
+
+    JSON_VALUE(c.value,'$.character'),
+
+    TRY_CONVERT(INT, JSON_VALUE(c.value,'$.order'))
+
+FROM bronze.raw_movies b
+
+CROSS APPLY OPENJSON(b.payload,'$.cast') c
+
+WHERE
+    b.source_endpoint='credits'
+    AND TRY_CONVERT(INT, JSON_VALUE(c.value,'$.order')) <= 4;
+
+
+-- Director
+INSERT INTO silver.movie_cast
 (
-    movie_id INT,
-    genre_id INT
-);
+    movie_id,
+    person_name,
+    role_type,
+    character_name,
+    cast_order
+)
+SELECT
 
-CREATE TABLE silver_python.movie_companies
-(
-    movie_id INT,
-    company_name NVARCHAR(300)
-);
+    TRY_CONVERT(INT, JSON_VALUE(b.payload,'$.id')),
 
-CREATE TABLE silver_python.movie_cast
-(
-    movie_id INT,
+    JSON_VALUE(c.value,'$.name'),
 
-    person_name NVARCHAR(200),
+    'Director',
 
-    role_type VARCHAR(20),
+    NULL,
 
-    character_name NVARCHAR(300),
+    NULL
 
-    cast_order INT
-);
+FROM bronze.raw_movies b
 
-SELECT 
-    TABLE_SCHEMA,
-    TABLE_NAME
-FROM INFORMATION_SCHEMA.TABLES
-WHERE TABLE_SCHEMA = 'silver_python';
+CROSS APPLY OPENJSON(b.payload,'$.crew') c
+
+WHERE
+    b.source_endpoint='credits'
+    AND JSON_VALUE(c.value,'$.job')='Director';
