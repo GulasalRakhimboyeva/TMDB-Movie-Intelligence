@@ -218,20 +218,21 @@ INSERT INTO silver.movie_companies
     movie_id,
     company_name
 )
-SELECT
+SELECT DISTINCT
 
-    TRY_CONVERT(INT, JSON_VALUE(b.payload,'$.id')),
+    TRY_CONVERT(INT, JSON_VALUE(b.payload,'$.id')) AS movie_id,
 
-    JSON_VALUE(c.value,'$.name')
+    JSON_VALUE(c.value,'$.name') AS company_name
 
 FROM bronze.raw_movies b
 
-CROSS APPLY OPENJSON(
+CROSS APPLY OPENJSON
+(
     b.payload,
     '$.production_companies'
 ) c
 
-WHERE b.source_endpoint='details';
+WHERE b.source_endpoint = 'details';
 
 
 TRUNCATE TABLE silver.movie_cast;

@@ -107,3 +107,58 @@ what makes a pipeline reproducible.
 
 Detailed acceptance criteria live in each part's file.
 
+
+# 
+
+##  **Python vs SQL comparison note** 
+
+I created different schemas for pandas and SQL path, to compare later their results.
+
+SELECT COUNT(*) FROM silver_python.movies;
+SELECT COUNT(*) FROM silver.movies;
+
+SELECT COUNT(*) FROM silver_python.movie_genres;
+SELECT COUNT(*) FROM silver.movie_genres;
+
+SELECT COUNT(*) FROM silver_python.movie_companies;
+SELECT COUNT(*) FROM silver.movie_companies;
+
+SELECT COUNT(*) FROM silver_python.movie_cast;
+SELECT COUNT(*) FROM silver.movie_cast;
+
+from queries above we got rusults:
+
+silver_python.movies; 997
+silver.movies; 997
+
+silver_python.movie_genres; 2161
+silver.movie_genres; 2161
+
+silver_python.movie_companies; 2522
+silver.movie_companies; 2522
+
+silver_python.movie_cast; 5567
+silver.movie_cast; 5567
+
+
+                     Bronze
+                        │
+          ┌─────────────┴─────────────┐
+          │                           │
+          ▼                           ▼
+   Python (Pandas)             SQL Server (T-SQL)
+          │                           │
+          ▼                           ▼
+     Silver (Python)             Silver (SQL)
+          │                           │
+          └─────────────┬─────────────┘
+                        ▼
+                 Gold Star Schema
+                        ▼
+                   Power BI Dashboard
+
+When I first run those queries i got different results in movie_companies tables. The issue was in removing dublicates in sql.
+
+## star schema + KPI views.
+
+![alt text](image.png)

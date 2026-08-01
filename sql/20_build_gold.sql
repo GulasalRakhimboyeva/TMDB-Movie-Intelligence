@@ -19,7 +19,7 @@ CREATE TABLE gold.dim_date
 (
     date_key INT PRIMARY KEY,
 
-    full_date DATE,
+    full_date DATE NOT NULL UNIQUE,
 
     calendar_year INT,
 
@@ -31,6 +31,26 @@ CREATE TABLE gold.dim_date
 );
 GO
 
+DECLARE @StartDate DATE;
+DECLARE @EndDate DATE;
+
+SELECT
+    @StartDate = MIN(release_date),
+    @EndDate   = MAX(release_date)
+FROM silver.movies
+WHERE release_date IS NOT NULL;
+
+;WITH DateSeries AS
+(
+    SELECT @StartDate AS full_date
+
+    UNION ALL
+
+    SELECT DATEADD(DAY, 1, full_date)
+    FROM DateSeries
+    WHERE full_date < @EndDate
+)
+
 INSERT INTO gold.dim_date
 (
     date_key,
@@ -40,25 +60,27 @@ INSERT INTO gold.dim_date
     calendar_month,
     month_name
 )
-SELECT DISTINCT
 
-    YEAR(release_date) * 10000
-    + MONTH(release_date) * 100
-    + DAY(release_date),
+SELECT
 
-    release_date,
+    YEAR(full_date) * 10000
+    + MONTH(full_date) * 100
+    + DAY(full_date) AS date_key,
 
-    YEAR(release_date),
+    full_date,
 
-    DATEPART(QUARTER, release_date),
+    YEAR(full_date),
 
-    MONTH(release_date),
+    DATEPART(QUARTER, full_date),
 
-    DATENAME(MONTH, release_date)
+    MONTH(full_date),
 
-FROM silver.movies
+    DATENAME(MONTH, full_date)
 
-WHERE release_date IS NOT NULL;
+FROM DateSeries
+
+OPTION (MAXRECURSION 0);
+GO
 
 DROP TABLE IF EXISTS gold.dim_language;
 GO
