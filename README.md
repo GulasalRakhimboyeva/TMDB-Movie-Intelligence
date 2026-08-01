@@ -140,25 +140,33 @@ silver.movie_companies; 2522
 silver_python.movie_cast; 5567
 silver.movie_cast; 5567
 
+When I first run those queries I got different results in movie_companies tables. The issue was in removing dublicates in sql.
 
-                     Bronze
-                        │
-          ┌─────────────┴─────────────┐
-          │                           │
-          ▼                           ▼
-   Python (Pandas)             SQL Server (T-SQL)
-          │                           │
-          ▼                           ▼
-     Silver (Python)             Silver (SQL)
-          │                           │
-          └─────────────┬─────────────┘
-                        ▼
-                 Gold Star Schema
-                        ▼
-                   Power BI Dashboard
-
-When I first run those queries i got different results in movie_companies tables. The issue was in removing dublicates in sql.
+Both the Python and T-SQL implementations produced consistent Silver tables with matching row counts and identical values for the sampled movies. Pandas made it easier to parse nested JSON structures, perform complex transformations, and export the cleaned data to Parquet files. In contrast, T-SQL was more efficient for relational operations, such as joins, filtering, and loading data directly into SQL Server. During development, Python provided greater flexibility for debugging and handling JSON objects, while SQL simplified set-based transformations and database-side processing. Both approaches required careful handling of missing values and duplicate records, but SQL emphasized null-safe calculations, whereas Pandas offered more intuitive data manipulation functions.
 
 ## star schema + KPI views.
 
 ![alt text](image.png)
+
+## how to run
+
+1. Execute **create_schemas.sql**  to create needed database, schemas, tables in sql.
+2. Run **ingest_bronze.py** to get data and store in data/bronze/ folder with different endpoints.
+3. Run **load_to_sqlserver.py** this loads data to bronze.raw_movies.
+4. Run **clean_silver_python.py** 
+5. Run **10_clean_silver-tsql.sql**
+6. Run **20_build_gold.sql** 
+**Cleaned, organized data is ready in sql server**
+
+Note! **05_checking_data.sql, smoke_test.py** are only for checking process along the way not required to run.
+
+# Screenshots of dashboard
+
+## Executive Overview
+![alt text](image-1.png)
+## Genre & Studio Deep Dive
+![alt text](image-2.png)
+## Movie Explorer
+![alt text](image-3.png)
+## Insights
+![alt text](image-4.png)
