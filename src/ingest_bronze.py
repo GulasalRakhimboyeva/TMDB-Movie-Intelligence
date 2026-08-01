@@ -5,7 +5,7 @@ This script downloads raw movie data from the TMDB API and stores it
 without modification. The raw JSON files become the Bronze layer of the
 Medallion Architecture.
 
-Author: Your Name
+Author: Gulasal Rakhimboyeva
 Project: TMDB Movie Intelligence
 """
 

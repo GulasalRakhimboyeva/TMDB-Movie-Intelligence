@@ -5,7 +5,7 @@ This script reads raw JSON payloads from the Bronze layer stored in
 SQL Server, cleans and transforms the data, then writes the Silver
 layer outputs to both parquet files and SQL Server tables.
 
-Author: Your Name
+Author: Gulasal Rakhimboyeva
 Project: TMDB Movie Intelligence
 """
 

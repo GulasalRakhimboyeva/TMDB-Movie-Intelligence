@@ -108,7 +108,7 @@ what makes a pipeline reproducible.
 Detailed acceptance criteria live in each part's file.
 
 
-# 
+# Explanation of work 
 
 ##  **Python vs SQL comparison note** 
 
