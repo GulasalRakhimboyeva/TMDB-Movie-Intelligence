@@ -2,6 +2,10 @@
 SELECT TOP (10) *
 FROM bronze.raw_movies;
 
+--record count
+SELECT
+    COUNT(*) AS record_count
+FROM bronze.raw_movies
 -- counting by endpoints
 SELECT
     source_endpoint,

@@ -26,4 +26,4 @@ if response.status_code == 200:
     print("Movie Title:", data["title"])
 else:
     print(response.text)
-    
+
